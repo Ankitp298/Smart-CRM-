@@ -4,6 +4,7 @@ from rest_framework import viewsets
 from .serializers import TaskSerializer
 from .models import Task
 from .permissions import IsAdminOrManager
+from .tasks import send_task_reminder
 # Create your views here.
 
 class TaskViewSet(viewsets.ModelViewSet):
@@ -19,7 +20,13 @@ class TaskViewSet(viewsets.ModelViewSet):
         return Task.objects.select_related('customer','lead','assigned_to').filter(assigned_to=user)
     
     def perform_create(self, serializer):
-        return serializer.save(created_by= self.request.user)
+        task = serializer.save(created_by= self.request.user)
+        if task.assigned_to or task.assigned_to.email:
+            send_task_reminder.dalay(
+                task.assigned_to.email,
+                task.title
+            )
+        return
     
     def get_permissions(self):
         if self.action in ['create','update','partial_update','destroy']:
